@@ -59,6 +59,7 @@ graph TD;
     AI_Assistant -->|Creates| Lambda_Function
     Lambda_Function -->|Stores Data| S3_Bucket
     AI_Assistant -->|Performs| Calculations
+```
 
 ## License
 
