@@ -6,12 +6,17 @@ from typing import List
 import boto3
 import utils as lambda_helpers
 from botocore.exceptions import ClientError
+from email_sender import send_email
+from email_sender import main
+from email_sender import get_recipient
 
 # Retrieve environment variables
 LAMBDA_ROLE = os.environ["LAMBDA_ROLE"]
 S3_BUCKET = os.environ["S3_BUCKET"]
 REGION = "us-east-1"
 
+recipient = get_recipient() 
+print(recipient)
 
 def initialize_clients():
     """Initialize and return the AWS Bedrock, Lambda, and S3 clients."""
@@ -27,6 +32,19 @@ def get_tool_list():
     return [
         {
             "toolSpec": {
+                "name": "send_email",
+                "description": "Send an email using the getEmail Lambda function. No input is required.",
+                "inputSchema": {
+                    "json": {
+                        "type": "object",
+                        "properties": {},
+                        "required": [],
+                    }
+                }
+            }
+        },
+            {
+                "toolSpec": {
                 "name": "cosine",
                 "description": "Calculate the cosine of x.",
                 "inputSchema": {
@@ -150,8 +168,26 @@ def create_lambda_function(
         user_response = f"The function {deployed_function} has been deployed to the customer's AWS account. I will now provide my final answer to the customer on how to invoke the {deployed_function} function with boto3 and print the result."
         return user_response
     except ClientError as e:
-        print(e)
+        (e)
         return f"Error: {e}\n Let me try again..."
+
+def call_lambda_function(lambda_client, function_name, payload={}):
+    """
+    Invokes a Lambda function with the given payload.
+    """
+    try:
+        response = lambda_client.invoke(
+            FunctionName=function_name,
+            InvocationType='RequestResponse',  # Synchronous call
+            Payload=json.dumps(payload)  # Sending an empty payload if not needed
+        )
+        # Parse the response
+        response_payload = json.loads(response['Payload'].read())
+        print(f"Lambda response: {response_payload}")
+        return response_payload
+    except Exception as e:
+        print(f"Error invoking Lambda function: {e}")
+        return {"error": str(e)}
 
 
 def process_llm_response(response_message, lambda_client, s3):
@@ -175,6 +211,16 @@ def process_llm_response(response_message, lambda_client, s3):
                         }
                     }
                 )
+            elif tool_use_name == "send_email":
+                result = call_lambda_function(lambda_client, "getEmail", {})
+                follow_up_content_blocks.append(
+                    {
+                        "toolResult": {
+                            "toolUseId": tool_use_block["toolUseId"],
+                            "content": [{"json": {"result": result}}],
+                        }
+                    }
+                )
             elif tool_use_name == "create_lambda_function":
                 result = create_lambda_function(
                     lambda_client,
@@ -195,7 +241,23 @@ def process_llm_response(response_message, lambda_client, s3):
                     }
                 )
         elif "text" in content_block:
-            print(f"LLM response: {content_block['text']}")
+            user_message = content_block["text"].lower()
+            print(f"User message: {user_message}")
+
+            # Detect phrases that should trigger the send_email Lambda function.
+            if (
+                "escalate this issue" in user_message
+            ):
+                print("Triggering send_email due to detected user intent.")
+                result = call_lambda_function(lambda_client, "getEmail", {})
+                follow_up_content_blocks.append(
+                    {
+                        "toolResult": {
+                            "toolUseId": "custom_tooluse_id",
+                            "content": [{"json": {"result": result}}],
+                        }
+                    }
+                )
 
     return follow_up_content_blocks
 
@@ -211,12 +273,12 @@ def main():
     message_list = [
         {
             "role": "user",
-            "content": [{"text": "Replace with user request."}],
+            "content": [{"text": "[User request.]"}],
         }
     ]
 
     # Set the system prompt
-    system_prompt = "You are an AI assistant capable of creating Lambda functions and performing mathematical calculations. Use the provided tools when necessary."
+    system_prompt = "You are an AI assistant capable of creating Lambda functions, performing mathematical calculations, and sending emails. Use the provided tools when necessary."
 
     # Make the initial request to the LLM
     response = query_llm(bedrock, message_list, tool_list, system_prompt)
