@@ -53,6 +53,7 @@ Make sure that your AWS Lambda function and S3 bucket are properly configured to
 
 ## Architecture
 
+```mermaid
 graph TD;
     UserInput -->|Triggers| AI_Assistant
     AI_Assistant -->|Creates| Lambda_Function
