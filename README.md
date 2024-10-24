@@ -5,7 +5,7 @@ This repository contains a Python-based AI assistant built using AWS Bedrock. Th
 
 ## Prerequisites
 
-- Python 3.7 or higher
+- Python 3.11 or higher
 - AWS account with appropriate permissions for Lambda and S3
 - AWS CLI configured with your credentials
 
