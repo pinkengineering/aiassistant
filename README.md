@@ -1,11 +1,11 @@
 
-# AI Agent using Python and AWS Bedrock
+# AI Assistant
 
 This repository contains a Python-based AI assistant built using AWS Bedrock. The assistant is designed to automate the creation of AWS Lambda functions based on user inputs, can perform various mathematical calculations, and send an email.
 
 ## Prerequisites
 
-- Python 3.11 or higher
+- Python 3.12 or higher
 - AWS account with appropriate permissions for Lambda and S3
 - AWS CLI configured with your credentials
 
@@ -58,6 +58,7 @@ Make sure that your AWS Lambda function and S3 bucket are properly configured to
 graph TD;
     UserInput -->|Triggers| AI_Assistant
     AI_Assistant -->|Creates| Lambda_Function
+    AI_Assistant -->|Sends| Email
     Lambda_Function -->|Stores Data| S3_Bucket
     AI_Assistant -->|Performs| Calculations
 ```
